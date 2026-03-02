@@ -1,0 +1,13 @@
+services:
+  pneumonia_api:
+    build: .
+    container_name: pneumonia_api
+    ports:
+      - "8000:8000"
+    environment:
+      # Optional. Only include if your app reads these env vars in config.py
+      # MODEL_PATH: "models/pneumonia_model.keras"
+      # IMG_SIZE: "224"
+      # THRESHOLD: "0.5"
+      PYTHONUNBUFFERED: "1"
+    restart: unless-stopped

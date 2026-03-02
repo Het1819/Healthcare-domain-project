@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pneumonia X-ray Classifier</title>
+
+    <!-- Tailwind CDN (simple + beautiful) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="mx-auto max-w-6xl px-6 py-10">
+      <!-- Header -->
+      <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="text-3xl font-semibold tracking-tight">Pneumonia X-ray Classifier</h1>
+          <p class="text-slate-300 mt-2">
+            Upload a chest X-ray image and get a prediction from your model.
+          </p>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3">
+          <div class="text-sm text-slate-300">Model input size</div>
+          <div class="text-lg font-semibold">{{ img_size }} × {{ img_size }} (grayscale)</div>
+        </div>
+      </div>
+
+      <!-- Main grid -->
+      <div class="mt-8 grid gap-6 lg:grid-cols-2">
+        <!-- Upload card -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow-xl">
+          <h2 class="text-xl font-semibold">1) Upload X-ray</h2>
+          <p class="mt-1 text-slate-300 text-sm">PNG/JPG recommended.</p>
+
+          <div class="mt-5">
+            <label
+              for="fileInput"
+              class="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/40 px-6 py-10 text-center hover:border-slate-500 transition"
+            >
+              <div class="text-base font-medium">Drop image here or click to browse</div>
+              <div class="mt-2 text-sm text-slate-400">Max size depends on your server</div>
+              <input id="fileInput" type="file" accept="image/*" class="hidden" />
+            </label>
+          </div>
+
+          <div class="mt-6 flex items-center justify-between gap-4">
+            <div class="w-full">
+              <div class="flex items-center justify-between">
+                <label class="text-sm text-slate-300">Threshold</label>
+                <span id="thresholdValue" class="text-sm font-semibold text-slate-200">{{ default_threshold }}</span>
+              </div>
+
+              <input
+                id="thresholdSlider"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="{{ default_threshold }}"
+                class="mt-2 w-full accent-slate-200"
+              />
+              <p class="mt-2 text-xs text-slate-400">
+                Higher threshold makes it harder to predict “NORMAL” (depends on your model output convention).
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-6 flex gap-3">
+            <button
+              id="predictBtn"
+              class="w-full rounded-xl bg-white px-4 py-3 text-slate-900 font-semibold hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              Predict
+            </button>
+
+            <button
+              id="resetBtn"
+              class="rounded-xl border border-slate-700 px-4 py-3 text-slate-100 hover:border-slate-500 transition"
+              type="button"
+            >
+              Reset
+            </button>
+          </div>
+
+          <div id="errorBox" class="mt-4 hidden rounded-xl border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-200"></div>
+        </div>
+
+        <!-- Preview + results -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow-xl">
+          <h2 class="text-xl font-semibold">2) Preview & Result</h2>
+          <p class="mt-1 text-slate-300 text-sm">You’ll see the image and prediction details here.</p>
+
+          <div class="mt-5 grid gap-5">
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+              <div class="text-sm text-slate-300 mb-3">Preview</div>
+              <div class="aspect-video overflow-hidden rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center">
+                <img id="previewImg" class="hidden max-h-full max-w-full object-contain" alt="Preview" />
+                <div id="previewPlaceholder" class="text-slate-500 text-sm">No image selected</div>
+              </div>
+              <div id="fileMeta" class="mt-3 text-xs text-slate-400"></div>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+              <div class="flex items-center justify-between">
+                <div class="text-sm text-slate-300">Prediction</div>
+                <div id="loadingBadge" class="hidden text-xs rounded-full border border-slate-700 px-3 py-1 text-slate-300">
+                  Running...
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <div class="text-2xl font-semibold" id="predLabel">—</div>
+                <div class="mt-2 text-sm text-slate-300" id="predNote">Upload an image and click Predict.</div>
+              </div>
+
+              <div class="mt-5 grid gap-3">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-slate-300">Prob (NORMAL)</span>
+                  <span id="probNormal" class="font-semibold">—</span>
+                </div>
+                <div class="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                  <div id="barNormal" class="h-2 w-0 rounded-full bg-emerald-400 transition-all"></div>
+                </div>
+
+                <div class="flex items-center justify-between text-sm mt-2">
+                  <span class="text-slate-300">Prob (PNEUMONIA)</span>
+                  <span id="probPneumonia" class="font-semibold">—</span>
+                </div>
+                <div class="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                  <div id="barPneumonia" class="h-2 w-0 rounded-full bg-rose-400 transition-all"></div>
+                </div>
+
+                <div class="mt-3 text-xs text-slate-400">
+                  Threshold used: <span id="thresholdUsed" class="font-semibold text-slate-200">—</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-xs text-slate-500">
+              Tip: if you want a separate React frontend later, you can still keep these same backend endpoints.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-10 text-sm text-slate-500">
+        API docs: <a class="underline hover:text-slate-300" href="/docs">/docs</a>
+      </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
