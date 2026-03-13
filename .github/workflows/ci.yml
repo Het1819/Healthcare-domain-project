@@ -7,6 +7,11 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+
+# This environment variable fixes the Node.js 20 warning
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-and-test:
@@ -18,19 +23,18 @@ jobs:
 
       - name: Build and Run Docker Container
         run: |
-          # Spin up the container in detached mode (-d) using your docker-compose
-          docker-compose up -d --build
+          # Changed to modern 'docker compose' (no hyphen)
+          docker compose up -d --build
           
-          # Wait a few seconds to let FastAPI boot up and load the .keras model into memory
           echo "Waiting for the server to start..."
           sleep 15
 
       - name: Check Container Logs (Debugging)
-        run: docker-compose logs
+        # Changed to modern 'docker compose'
+        run: docker compose logs
 
       - name: Test /health endpoint
         run: |
-          # Hit the health endpoint and capture the HTTP status code
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health)
           
           if [ "$STATUS_CODE" -eq 200 ]; then
@@ -42,4 +46,5 @@ jobs:
 
       - name: Stop and Remove Container
         if: always()
-        run: docker-compose down
+        # Changed to modern 'docker compose'
+        run: docker compose down
