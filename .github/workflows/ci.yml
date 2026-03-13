@@ -1,0 +1,44 @@
+name: FastAPI CI Pipeline
+
+on: 
+  push: 
+    branches:
+      -main
+  pull_request:
+    branches:
+      -main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        user: actions/checkout@v4
+
+      - name: Build and Run Docker Container
+        run: |
+          # Spin up the container in detached mode (-d) using your docker-compose
+          docker-compose up -d --build
+
+          # Wait a few seconds to let FastAPI boot up and load the .keras model into memory
+          echo "Waiting for the server to start..."
+          sleep 15
+      
+      - name: Check Container Logs (Debugging)
+        run: docker-compose Logs
+
+      - name: Test /health endpoint
+        run: |
+          # Hit the health endpoint and capture the HTTP status code
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health)
+
+          if [ "$STATUS_CODE" -eq 200 ]; then
+            echo "✅ Health check passed! Received status $STATUS_CODE"
+          else
+            echo "❌ Health check failed! Received status $STATUS_CODE"
+            exit 1
+          fi
+      - name: Stop and Remove Container
+        if: always()
+        run: docker-compose down
