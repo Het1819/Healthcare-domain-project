@@ -5,3 +5,4 @@ class PredictionResponse(BaseModel):
     prob_normal: float
     prob_pneumonia: float
     threshold: float
+
